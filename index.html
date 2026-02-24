@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CertiFlow — Blockchain Explorer</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ── TOP NAV ─────────────────────────────────────────────── -->
+  <header class="navbar">
+    <div class="navbar-brand">
+      <div class="brand-icon">⬡</div>
+      <span class="brand-name">CertiFlow</span>
+      <span class="brand-sub">Blockchain Explorer</span>
+    </div>
+
+    <div class="network-status" id="networkStatus">
+      <span class="status-dot disconnected" id="statusDot"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+
+    <div class="navbar-right">
+      <div class="network-info" id="networkInfo" style="display:none">
+        <span class="info-chip" id="blockNumber">Block —</span>
+        <span class="info-chip" id="networkId">Chain —</span>
+      </div>
+      <button class="btn btn-primary" id="connectBtn" onclick="connectAndLoad()">
+        Connect to Polygon Amoy
+      </button>
+    </div>
+  </header>
+
+  <!-- ── SETTINGS DRAWER ────────────────────────────────────── -->
+  <div class="settings-bar" id="settingsBar">
+    <div class="settings-inner">
+      <div class="setting-group">
+        <label>RPC URL</label>
+        <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" placeholder="http://127.0.0.1:7545" />
+      </div>
+      <div class="setting-group">
+        <label>CertificateRegistry</label>
+        <input type="text" id="certAddr" placeholder="0x..." />
+      </div>
+      <div class="setting-group">
+        <label>EntityRegistry</label>
+        <input type="text" id="entityAddr" placeholder="0x..." />
+      </div>
+      <div class="setting-group">
+        <label>AttachmentRegistry</label>
+        <input type="text" id="attachAddr" placeholder="0x..." />
+      </div>
+      <button class="btn btn-ghost" onclick="toggleSettings()">✕ Close</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN ───────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Disconnected splash -->
+    <div class="splash" id="splash">
+      <div class="splash-icon">⬡</div>
+      <h1>CertiFlow Blockchain Explorer</h1>
+      <p>Inspect every certificate, entity, and attachment stored on-chain.<br/>
+        Live on <strong>Polygon Amoy Testnet</strong> &mdash; no wallet required.</p>
+      <div class="splash-actions">
+        <button class="btn btn-primary btn-lg" onclick="connectAndLoad()">⚡ Connect to Polygon Amoy</button>
+        <button class="btn btn-ghost btn-lg" onclick="toggleSettings()">⚙ Configure RPC / Addresses</button>
+      </div>
+      <div class="splash-chips">
+        <span class="splash-chip">🔍 Read-only</span>
+        <span class="splash-chip">🔗 Chain ID 80002</span>
+        <span class="splash-chip">📄 3 Smart Contracts</span>
+        <span class="splash-chip">🚫 No MetaMask needed</span>
+      </div>
+    </div>
+
+    <!-- Dashboard content (hidden until connected) -->
+    <div id="dashboard" style="display:none">
+
+      <!-- STAT CARDS -->
+      <section class="stats-row">
+        <div class="stat-card" id="statCert">
+          <div class="stat-icon cert-icon">🎓</div>
+          <div class="stat-body">
+            <div class="stat-value" id="certCount">—</div>
+            <div class="stat-label">Certificates</div>
+          </div>
+          <div class="stat-badge cert-badge">Registry</div>
+        </div>
+        <div class="stat-card" id="statEntity">
+          <div class="stat-icon entity-icon">🏢</div>
+          <div class="stat-body">
+            <div class="stat-value" id="entityCount">—</div>
+            <div class="stat-label">Entities</div>
+          </div>
+          <div class="stat-badge entity-badge">Registry</div>
+        </div>
+        <div class="stat-card" id="statAttach">
+          <div class="stat-icon attach-icon">📎</div>
+          <div class="stat-body">
+            <div class="stat-value" id="attachCount">—</div>
+            <div class="stat-label">Attachments</div>
+          </div>
+          <div class="stat-badge attach-badge">Registry</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔗</div>
+          <div class="stat-body">
+            <div class="stat-value" id="totalTx">—</div>
+            <div class="stat-label">Total Events</div>
+          </div>
+          <div class="stat-badge">On-chain</div>
+        </div>
+      </section>
+
+      <!-- LOOKUP TOOL -->
+      <section class="lookup-section">
+        <div class="lookup-card">
+          <h3>🔍 Hash Lookup</h3>
+          <p>Paste any credential hash, entity hash, or file hash to query its on-chain record.</p>
+          <div class="lookup-row">
+            <select id="lookupRegistry">
+              <option value="certificate">Certificate Registry</option>
+              <option value="entity">Entity Registry</option>
+              <option value="attachment">Attachment Registry</option>
+            </select>
+            <input type="text" id="lookupHash" placeholder="0x..." spellcheck="false" />
+            <button class="btn btn-primary" onclick="lookupHash()">Lookup</button>
+          </div>
+          <div id="lookupResult"></div>
+        </div>
+      </section>
+
+      <!-- TABS -->
+      <section class="tabs-section">
+        <div class="tabs-header">
+          <button class="tab-btn active" onclick="switchTab('certificates', this)">
+            🎓 Certificates
+            <span class="tab-count" id="tabCertCount">0</span>
+          </button>
+          <button class="tab-btn" onclick="switchTab('entities', this)">
+            🏢 Entities
+            <span class="tab-count" id="tabEntityCount">0</span>
+          </button>
+          <button class="tab-btn" onclick="switchTab('attachments', this)">
+            📎 Attachments
+            <span class="tab-count" id="tabAttachCount">0</span>
+          </button>
+          <div class="tabs-spacer"></div>
+          <button class="btn btn-ghost btn-sm" onclick="connectAndLoad()">↺ Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleSettings()">⚙ Settings</button>
+        </div>
+
+        <!-- Certificates tab -->
+        <div class="tab-panel active" id="tab-certificates">
+          <div id="certTableWrap">
+            <div class="empty-state">No certificate events found.</div>
+          </div>
+        </div>
+
+        <!-- Entities tab -->
+        <div class="tab-panel" id="tab-entities">
+          <div id="entityTableWrap">
+            <div class="empty-state">No entity events found.</div>
+          </div>
+        </div>
+
+        <!-- Attachments tab -->
+        <div class="tab-panel" id="tab-attachments">
+          <div id="attachTableWrap">
+            <div class="empty-state">No attachment events found.</div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /dashboard -->
+
+    <!-- ── FAQ SECTION ─────────────────────────────────────── -->
+    <section class="faq-section">
+      <div class="faq-header">
+        <span class="faq-icon">💬</span>
+        <div>
+          <h2>How to Connect &amp; Use This Dashboard</h2>
+          <p class="faq-subtitle">Everything you need to know to explore CertiFlow's on-chain data.</p>
+        </div>
+      </div>
+
+      <div class="faq-list">
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>What is this dashboard?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>This is a <strong>read-only blockchain explorer</strong> for CertiFlow's three smart contracts deployed on the <strong>Polygon Amoy testnet</strong>. It lets you inspect every certificate registration, entity verification, and file attachment record that has been stored on-chain &mdash; directly from the blockchain, with no intermediary server.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Do I need MetaMask, a wallet, or any account?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p><strong>No wallet or account is needed.</strong> This dashboard only <em>reads</em> blockchain data using a public RPC endpoint. No transactions are made, no signing is required. Just open the page and click <em>Connect</em> &mdash; data loads automatically.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How do I see all transactions from the 3 contracts?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>Click <strong>"Connect to Polygon Amoy"</strong> (the page auto-connects on load). The dashboard immediately fetches all on-chain events from all three registries:<br/><br/>
+              &nbsp;&nbsp;🎓 <strong>Certificates tab</strong> &mdash; all issued, updated, and revoked certificates<br/>
+              &nbsp;&nbsp;🏢 <strong>Entities tab</strong> &mdash; all registered organizations and businesses<br/>
+              &nbsp;&nbsp;📎 <strong>Attachments tab</strong> &mdash; all verified document file hashes<br/><br/>
+              Click <em>↺ Refresh</em> at any time to reload the latest events from the chain.
+            </p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How do I verify a specific certificate or entity?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>Use the <strong>Hash Lookup</strong> tool (above the tabs, visible after connecting). Paste any <code>0x…</code> hash &mdash; such as a certificate metadata hash, entity hash, or file hash &mdash; select the correct registry, and click <strong>Lookup</strong>. The contract returns the full on-chain record including timestamp, version, and validity status.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Can I use my own RPC or contract addresses (for local dev)?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. Click <strong>⚙ Settings</strong> in the top navigation bar to override the RPC URL and contract addresses. For example, to connect to a local Ganache node, set the RPC to <code>http://127.0.0.1:7545</code> and paste your locally deployed contract addresses. Useful for developers running a local Hardhat or Ganache environment.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Where can I verify the contracts on a block explorer?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>View the live contracts on <strong>Polygon Amoy Scan</strong>:<br/><br/>
+              &nbsp;&nbsp;🎓 <a href="https://amoy.polygonscan.com/address/0x8fab86cf24878a0a4dceb15222f12fd0ce638d9f" target="_blank" rel="noopener">CertificateRegistry — 0x8fab86cf...</a><br/>
+              &nbsp;&nbsp;🏢 <a href="https://amoy.polygonscan.com/address/0x61cdf995fad54b3cfbb5a46089536fff6a01541d" target="_blank" rel="noopener">EntityRegistry — 0x61cdf995...</a><br/>
+              &nbsp;&nbsp;📎 <a href="https://amoy.polygonscan.com/address/0xeaac0884a31787758e381fd0415fea2fde15830c" target="_blank" rel="noopener">AttachmentRegistry — 0xeaac0884...</a>
+            </p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Is the on-chain data permanent and tamper-proof?</span>
+            <span class="faq-arrow">›</span>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. Once a certificate or entity is registered, the record is <strong>immutable</strong> &mdash; it cannot be deleted or altered. Even revocations are recorded as permanent on-chain marks (not deletions). This is the core security guarantee of the blockchain: data is transparent, auditable, and cannot be falsified after the fact.</p>
+          </div>
+        </div>
+
+      </div><!-- /faq-list -->
+    </section><!-- /faq-section -->
+
+  </main>
+
+  <!-- ── TOAST ─────────────────────────────────────────────── -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ── DETAIL MODAL ──────────────────────────────────────── -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="modalTitle">Event Details</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
