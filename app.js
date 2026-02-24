@@ -2,30 +2,25 @@
    CertiFlow Blockchain Explorer — app.js
    ───────────────────────────────────────────────────────────── */
 
-// ── DEFAULT CONFIG ────────────────────────────────────────────
-// To switch networks, update these 4 values:
-//   rpc    → your Alchemy/Infura endpoint for the target network
-//   cert   → CertificateRegistry address after deploying
-//   entity → EntityRegistry address after deploying
-//   attach → AttachmentRegistry address after deploying
-//
-// Local Ganache (for local development only — requires Ganache running on your machine):
-const GANACHE = {
-  rpc:    "http://127.0.0.1:7545",
-  cert:   "0xf801cd17bd017f1d3ffe87d9a1b66e7b6d0314ca",
-  entity: "0x492a6b096349efdf41d8d09ffac064e68818ec2d",
-  attach: "0x96fee7878b15166c5d753b0f579a75e4c97680cb",
-};
+// ── CONFIG (stored in localStorage) ───────────────────────────
+const STORAGE_KEY = "certiflow_config";
 
-// Polygon Amoy Testnet — live public deployment (anyone can connect, no wallet needed):
-const AMOY = {
-  rpc:    "https://polygon-amoy.g.alchemy.com/v2/iT0aV-1BMzE1tWeh19MQD",
-  cert:   "0x8fab86cf24878a0a4dceb15222f12fd0ce638d9f",
-  entity: "0x61cdf995fad54b3cfbb5a46089536fff6a01541d",
-  attach: "0xeaac0884a31787758e381fd0415fea2fde15830c",
-};
+/** Load saved config from localStorage, or return null if none exists */
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    // Validate all 4 fields are present and non-empty
+    if (cfg.rpc && cfg.cert && cfg.entity && cfg.attach) return cfg;
+    return null;
+  } catch { return null; }
+}
 
-const DEFAULTS = AMOY; // Live on Polygon Amoy — switch to GANACHE for local dev
+/** Persist config to localStorage */
+function saveConfig(cfg) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+}
 
 // ── ABIS (events + view functions only) ───────────────────────
 const CERT_ABI = [
@@ -49,22 +44,26 @@ const ATTACH_ABI = [
 ];
 
 // ── LABEL MAPS ────────────────────────────────────────────────
-const ENTITY_TYPE  = { 0: "Organization", 1: "Business" };
-const ATTACH_TYPE  = { 0: "SEC Registration", 1: "Accreditation Cert", 2: "Business Permit", 3: "Tax Certificate", 4: "Government ID", 5: "Other" };
+const ENTITY_TYPE = { 0: "Organization", 1: "Business" };
+const ATTACH_TYPE = { 0: "SEC Registration", 1: "Accreditation Cert", 2: "Business Permit", 3: "Tax Certificate", 4: "Government ID", 5: "Other" };
 
 // ── STATE ─────────────────────────────────────────────────────
 let provider, certContract, entityContract, attachContract;
 
 // ── INIT ──────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("rpcUrl").value     = DEFAULTS.rpc;
-  document.getElementById("certAddr").value   = DEFAULTS.cert;
-  document.getElementById("entityAddr").value = DEFAULTS.entity;
-  document.getElementById("attachAddr").value = DEFAULTS.attach;
+  const saved = loadConfig();
 
-  // Auto-connect on load when using Amoy (public RPC, no local node needed)
-  if (DEFAULTS === AMOY) {
+  if (saved) {
+    // Config exists — populate settings inputs & auto-connect
+    document.getElementById("rpcUrl").value = saved.rpc;
+    document.getElementById("certAddr").value = saved.cert;
+    document.getElementById("entityAddr").value = saved.entity;
+    document.getElementById("attachAddr").value = saved.attach;
     connectAndLoad();
+  } else {
+    // First visit — show the config modal
+    openConfigModal();
   }
 
   // FAQ accordion toggle
@@ -83,12 +82,65 @@ function toggleSettings() {
   document.getElementById("settingsBar").classList.toggle("open");
 }
 
+// ── CONFIG MODAL ─────────────────────────────────────────────
+function openConfigModal() {
+  const saved = loadConfig();
+  if (saved) {
+    document.getElementById("cfgRpc").value = saved.rpc;
+    document.getElementById("cfgCert").value = saved.cert;
+    document.getElementById("cfgEntity").value = saved.entity;
+    document.getElementById("cfgAttach").value = saved.attach;
+  }
+  document.getElementById("configOverlay").classList.add("open");
+}
+
+function closeConfigModal() {
+  document.getElementById("configOverlay").classList.remove("open");
+}
+
+function submitConfig() {
+  const rpc = document.getElementById("cfgRpc").value.trim();
+  const cert = document.getElementById("cfgCert").value.trim();
+  const entity = document.getElementById("cfgEntity").value.trim();
+  const attach = document.getElementById("cfgAttach").value.trim();
+
+  // Basic validation
+  if (!rpc || !cert || !entity || !attach) {
+    showToast("Please fill in all 4 fields.", "error");
+    return;
+  }
+  if (!cert.startsWith("0x") || !entity.startsWith("0x") || !attach.startsWith("0x")) {
+    showToast("Contract addresses must start with 0x.", "error");
+    return;
+  }
+
+  const cfg = { rpc, cert, entity, attach };
+  saveConfig(cfg);
+
+  // Populate settings bar inputs too
+  document.getElementById("rpcUrl").value = rpc;
+  document.getElementById("certAddr").value = cert;
+  document.getElementById("entityAddr").value = entity;
+  document.getElementById("attachAddr").value = attach;
+
+  closeConfigModal();
+  showToast("Configuration saved!", "success");
+  connectAndLoad();
+}
+
 // ── CONNECT & LOAD ────────────────────────────────────────────
 async function connectAndLoad() {
-  const rpcUrl    = document.getElementById("rpcUrl").value.trim()    || DEFAULTS.rpc;
-  const certAddr  = document.getElementById("certAddr").value.trim()  || DEFAULTS.cert;
-  const entityAddr = document.getElementById("entityAddr").value.trim() || DEFAULTS.entity;
-  const attachAddr = document.getElementById("attachAddr").value.trim() || DEFAULTS.attach;
+  const saved = loadConfig();
+  const rpcUrl = document.getElementById("rpcUrl").value.trim() || (saved && saved.rpc) || "";
+  const certAddr = document.getElementById("certAddr").value.trim() || (saved && saved.cert) || "";
+  const entityAddr = document.getElementById("entityAddr").value.trim() || (saved && saved.entity) || "";
+  const attachAddr = document.getElementById("attachAddr").value.trim() || (saved && saved.attach) || "";
+
+  if (!rpcUrl || !certAddr || !entityAddr || !attachAddr) {
+    showToast("Missing config — please configure first.", "error");
+    openConfigModal();
+    return;
+  }
 
   setStatus("loading", "Connecting…");
   showLoader();
@@ -97,7 +149,7 @@ async function connectAndLoad() {
     provider = new ethers.JsonRpcProvider(rpcUrl);
     await provider.getNetwork(); // will throw if unreachable
 
-    certContract   = new ethers.Contract(certAddr,   CERT_ABI,   provider);
+    certContract = new ethers.Contract(certAddr, CERT_ABI, provider);
     entityContract = new ethers.Contract(entityAddr, ENTITY_ABI, provider);
     attachContract = new ethers.Contract(attachAddr, ATTACH_ABI, provider);
 
@@ -109,12 +161,12 @@ async function connectAndLoad() {
     // Update navbar
     setStatus("connected", `Connected · ${rpcUrl}`);
     document.getElementById("blockNumber").textContent = `Block ${block.toLocaleString()}`;
-    document.getElementById("networkId").textContent   = `Chain ${network.chainId}`;
+    document.getElementById("networkId").textContent = `Chain ${network.chainId}`;
     document.getElementById("networkInfo").style.display = "flex";
-    document.getElementById("connectBtn").textContent   = "↺ Refresh";
+    document.getElementById("connectBtn").textContent = "↺ Refresh";
 
     // Show dashboard
-    document.getElementById("splash").style.display    = "none";
+    document.getElementById("splash").style.display = "none";
     document.getElementById("dashboard").style.display = "block";
 
     await loadAllEvents();
@@ -140,12 +192,12 @@ async function loadAllEvents() {
   renderAttachments(attachEvents);
 
   const total = certEvents.length + entityEvents.length + attachEvents.length;
-  document.getElementById("certCount").textContent   = certEvents.length;
+  document.getElementById("certCount").textContent = certEvents.length;
   document.getElementById("entityCount").textContent = entityEvents.length;
   document.getElementById("attachCount").textContent = attachEvents.length;
-  document.getElementById("totalTx").textContent     = total;
+  document.getElementById("totalTx").textContent = total;
 
-  document.getElementById("tabCertCount").textContent   = certEvents.length;
+  document.getElementById("tabCertCount").textContent = certEvents.length;
   document.getElementById("tabEntityCount").textContent = entityEvents.length;
   document.getElementById("tabAttachCount").textContent = attachEvents.length;
 }
@@ -162,15 +214,15 @@ async function fetchCertificateEvents() {
     const revokedHashes = new Set(rev.map(e => e.args.metadataHash));
 
     return reg.map(e => ({
-      type:       "Registered",
-      txHash:     e.transactionHash,
-      block:      e.blockNumber,
+      type: "Registered",
+      txHash: e.transactionHash,
+      block: e.blockNumber,
       metadataHash: e.args.metadataHash,
-      certId:     e.args.certificateId.toString(),
-      ipfsCid:    e.args.ipfsCid,
-      version:    e.args.version.toString(),
-      timestamp:  Number(e.args.timestamp),
-      revoked:    revokedHashes.has(e.args.metadataHash),
+      certId: e.args.certificateId.toString(),
+      ipfsCid: e.args.ipfsCid,
+      version: e.args.version.toString(),
+      timestamp: Number(e.args.timestamp),
+      revoked: revokedHashes.has(e.args.metadataHash),
     })).sort((a, b) => b.block - a.block);
   } catch { return []; }
 }
@@ -181,13 +233,13 @@ async function fetchEntityEvents() {
       entityContract.filters.EntityRegistered(), 0, "latest"
     );
     return events.map(e => ({
-      txHash:     e.transactionHash,
-      block:      e.blockNumber,
+      txHash: e.transactionHash,
+      block: e.blockNumber,
       entityHash: e.args.entityHash,
       entityType: Number(e.args.entityType),
-      entityId:   e.args.entityId.toString(),
-      version:    e.args.version.toString(),
-      timestamp:  Number(e.args.timestamp),
+      entityId: e.args.entityId.toString(),
+      version: e.args.version.toString(),
+      timestamp: Number(e.args.timestamp),
     })).sort((a, b) => b.block - a.block);
   } catch { return []; }
 }
@@ -198,14 +250,14 @@ async function fetchAttachmentEvents() {
       attachContract.filters.AttachmentRegistered(), 0, "latest"
     );
     return events.map(e => ({
-      txHash:         e.transactionHash,
-      block:          e.blockNumber,
-      fileHash:       e.args.fileHash,
-      entityType:     Number(e.args.entityType),
-      entityId:       e.args.entityId.toString(),
+      txHash: e.transactionHash,
+      block: e.blockNumber,
+      fileHash: e.args.fileHash,
+      entityType: Number(e.args.entityType),
+      entityId: e.args.entityId.toString(),
       attachmentType: Number(e.args.attachmentType),
-      version:        e.args.version.toString(),
-      timestamp:      Number(e.args.timestamp),
+      version: e.args.version.toString(),
+      timestamp: Number(e.args.timestamp),
     })).sort((a, b) => b.block - a.block);
   } catch { return []; }
 }
@@ -224,8 +276,8 @@ function renderCertificates(events) {
       <td>${e.ipfsCid ? `<a href="https://gateway.pinata.cloud/ipfs/${e.ipfsCid}" target="_blank" style="color:var(--indigo);font-size:.78rem">${short(e.ipfsCid, 14)}</a>` : '—'}</td>
       <td><code style="font-size:.78rem;color:var(--text-2)">v${e.version}</code></td>
       <td>${e.revoked
-        ? '<span class="badge badge-revoked">Revoked</span>'
-        : '<span class="badge badge-valid">Valid</span>'}</td>
+      ? '<span class="badge badge-revoked">Revoked</span>'
+      : '<span class="badge badge-valid">Valid</span>'}</td>
       <td><span class="hash-cell" title="${e.txHash}">${short(e.txHash)}</span>
           <button class="copy-btn" onclick="copy('${e.txHash}')" title="Copy">⎘</button></td>
       <td>#${e.block}</td>
@@ -257,8 +309,8 @@ function renderEntities(events) {
       <td><span class="hash-cell" title="${e.entityHash}">${short(e.entityHash)}</span>
           <button class="copy-btn" onclick="copy('${e.entityHash}')" title="Copy">⎘</button></td>
       <td>${e.entityType === 0
-        ? '<span class="badge badge-org">Organization</span>'
-        : '<span class="badge badge-biz">Business</span>'}</td>
+      ? '<span class="badge badge-org">Organization</span>'
+      : '<span class="badge badge-biz">Business</span>'}</td>
       <td><code style="font-size:.78rem;color:var(--text-2)">${e.entityId}</code></td>
       <td><code style="font-size:.78rem;color:var(--text-2)">v${e.version}</code></td>
       <td><span class="hash-cell" title="${e.txHash}">${short(e.txHash)}</span>
@@ -292,8 +344,8 @@ function renderAttachments(events) {
       <td><span class="hash-cell" title="${e.fileHash}">${short(e.fileHash)}</span>
           <button class="copy-btn" onclick="copy('${e.fileHash}')" title="Copy">⎘</button></td>
       <td>${e.entityType === 0
-        ? '<span class="badge badge-org">Organization</span>'
-        : '<span class="badge badge-biz">Business</span>'}</td>
+      ? '<span class="badge badge-org">Organization</span>'
+      : '<span class="badge badge-biz">Business</span>'}</td>
       <td><code style="font-size:.78rem;color:var(--text-2)">${e.entityId}</code></td>
       <td><span class="badge badge-attach" style="font-size:.7rem">${ATTACH_TYPE[e.attachmentType] ?? e.attachmentType}</span></td>
       <td><code style="font-size:.78rem;color:var(--text-2)">v${e.version}</code></td>
@@ -322,8 +374,8 @@ async function lookupHash() {
   if (!provider) { showToast("Connect first", "error"); return; }
 
   const registry = document.getElementById("lookupRegistry").value;
-  const hash     = document.getElementById("lookupHash").value.trim();
-  const result   = document.getElementById("lookupResult");
+  const hash = document.getElementById("lookupHash").value.trim();
+  const result = document.getElementById("lookupResult");
 
   if (!hash || !hash.startsWith("0x")) {
     result.innerHTML = `<div class="result-card error"><div class="result-row"><span class="result-key">Error</span><span class="result-value">Please enter a valid 0x hash.</span></div></div>`;
@@ -339,36 +391,36 @@ async function lookupHash() {
       const data = await certContract.verifyCertificate(hash);
       if (!data.exists) { result.innerHTML = notFound(); return; }
       rows = [
-        ["Exists",         "✅ Yes"],
+        ["Exists", "✅ Yes"],
         ["Certificate ID", data.certificateId.toString()],
-        ["IPFS CID",       data.ipfsCid || "—"],
+        ["IPFS CID", data.ipfsCid || "—"],
         ["Recipient Hash", data.recipientHash],
-        ["Version",        `v${data.version}`],
-        ["Timestamp",      fmtTime(Number(data.timestamp))],
-        ["Revoked",        data.revoked ? "⚠️ Yes" : "No"],
+        ["Version", `v${data.version}`],
+        ["Timestamp", fmtTime(Number(data.timestamp))],
+        ["Revoked", data.revoked ? "⚠️ Yes" : "No"],
       ].map(kv => resultRow(kv[0], kv[1])).join("");
 
     } else if (registry === "entity") {
       const data = await entityContract.verifyEntity(hash);
       if (!data.exists) { result.innerHTML = notFound(); return; }
       rows = [
-        ["Exists",      "✅ Yes"],
+        ["Exists", "✅ Yes"],
         ["Entity Type", ENTITY_TYPE[Number(data.entityType)] ?? data.entityType],
-        ["Entity ID",   data.entityId.toString()],
-        ["Version",     `v${data.version}`],
-        ["Timestamp",   fmtTime(Number(data.timestamp))],
+        ["Entity ID", data.entityId.toString()],
+        ["Version", `v${data.version}`],
+        ["Timestamp", fmtTime(Number(data.timestamp))],
       ].map(kv => resultRow(kv[0], kv[1])).join("");
 
     } else {
       const data = await attachContract.verifyAttachment(hash);
       if (!data.exists) { result.innerHTML = notFound(); return; }
       rows = [
-        ["Exists",          "✅ Yes"],
-        ["Entity Type",     ENTITY_TYPE[Number(data.entityType)] ?? data.entityType],
-        ["Entity ID",       data.entityId.toString()],
+        ["Exists", "✅ Yes"],
+        ["Entity Type", ENTITY_TYPE[Number(data.entityType)] ?? data.entityType],
+        ["Entity ID", data.entityId.toString()],
         ["Attachment Type", ATTACH_TYPE[Number(data.attachmentType)] ?? data.attachmentType],
-        ["Version",         `v${data.version}`],
-        ["Timestamp",       fmtTime(Number(data.timestamp))],
+        ["Version", `v${data.version}`],
+        ["Timestamp", fmtTime(Number(data.timestamp))],
       ].map(kv => resultRow(kv[0], kv[1])).join("");
     }
 
@@ -389,45 +441,45 @@ function resultRow(k, v) {
 // ── DETAIL MODALS ─────────────────────────────────────────────
 function showCertDetail(e) {
   openModal("Certificate Details", `
-    ${resultRow("Metadata Hash",  `${e.metadataHash} <button class="copy-btn" onclick="copy('${e.metadataHash}')">⎘</button>`)}
+    ${resultRow("Metadata Hash", `${e.metadataHash} <button class="copy-btn" onclick="copy('${e.metadataHash}')">⎘</button>`)}
     ${resultRow("Certificate ID", e.certId)}
-    ${resultRow("IPFS CID",       e.ipfsCid ? `<a href="https://gateway.pinata.cloud/ipfs/${e.ipfsCid}" target="_blank" style="color:var(--indigo)">${e.ipfsCid}</a>` : "—")}
-    ${resultRow("Version",        `v${e.version}`)}
-    ${resultRow("Timestamp",      fmtTime(e.timestamp))}
-    ${resultRow("Status",         e.revoked ? '<span class="badge badge-revoked">Revoked</span>' : '<span class="badge badge-valid">Valid</span>')}
-    ${resultRow("TX Hash",        `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
-    ${resultRow("Block",          `#${e.block}`)}
+    ${resultRow("IPFS CID", e.ipfsCid ? `<a href="https://gateway.pinata.cloud/ipfs/${e.ipfsCid}" target="_blank" style="color:var(--indigo)">${e.ipfsCid}</a>` : "—")}
+    ${resultRow("Version", `v${e.version}`)}
+    ${resultRow("Timestamp", fmtTime(e.timestamp))}
+    ${resultRow("Status", e.revoked ? '<span class="badge badge-revoked">Revoked</span>' : '<span class="badge badge-valid">Valid</span>')}
+    ${resultRow("TX Hash", `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
+    ${resultRow("Block", `#${e.block}`)}
   `);
 }
 
 function showEntityDetail(e) {
   openModal("Entity Details", `
-    ${resultRow("Entity Hash",  `${e.entityHash} <button class="copy-btn" onclick="copy('${e.entityHash}')">⎘</button>`)}
-    ${resultRow("Entity Type",  ENTITY_TYPE[e.entityType] ?? e.entityType)}
-    ${resultRow("Entity ID",    e.entityId)}
-    ${resultRow("Version",      `v${e.version}`)}
-    ${resultRow("Timestamp",    fmtTime(e.timestamp))}
-    ${resultRow("TX Hash",      `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
-    ${resultRow("Block",        `#${e.block}`)}
+    ${resultRow("Entity Hash", `${e.entityHash} <button class="copy-btn" onclick="copy('${e.entityHash}')">⎘</button>`)}
+    ${resultRow("Entity Type", ENTITY_TYPE[e.entityType] ?? e.entityType)}
+    ${resultRow("Entity ID", e.entityId)}
+    ${resultRow("Version", `v${e.version}`)}
+    ${resultRow("Timestamp", fmtTime(e.timestamp))}
+    ${resultRow("TX Hash", `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
+    ${resultRow("Block", `#${e.block}`)}
   `);
 }
 
 function showAttachDetail(e) {
   openModal("Attachment Details", `
-    ${resultRow("File Hash",       `${e.fileHash} <button class="copy-btn" onclick="copy('${e.fileHash}')">⎘</button>`)}
-    ${resultRow("Entity Type",     ENTITY_TYPE[e.entityType] ?? e.entityType)}
-    ${resultRow("Entity ID",       e.entityId)}
+    ${resultRow("File Hash", `${e.fileHash} <button class="copy-btn" onclick="copy('${e.fileHash}')">⎘</button>`)}
+    ${resultRow("Entity Type", ENTITY_TYPE[e.entityType] ?? e.entityType)}
+    ${resultRow("Entity ID", e.entityId)}
     ${resultRow("Attachment Type", ATTACH_TYPE[e.attachmentType] ?? e.attachmentType)}
-    ${resultRow("Version",         `v${e.version}`)}
-    ${resultRow("Timestamp",       fmtTime(e.timestamp))}
-    ${resultRow("TX Hash",         `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
-    ${resultRow("Block",           `#${e.block}`)}
+    ${resultRow("Version", `v${e.version}`)}
+    ${resultRow("Timestamp", fmtTime(e.timestamp))}
+    ${resultRow("TX Hash", `${e.txHash} <button class="copy-btn" onclick="copy('${e.txHash}')">⎘</button>`)}
+    ${resultRow("Block", `#${e.block}`)}
   `);
 }
 
 function openModal(title, bodyHtml) {
   document.getElementById("modalTitle").textContent = title;
-  document.getElementById("modalBody").innerHTML    = `<div class="result-card">${bodyHtml}</div>`;
+  document.getElementById("modalBody").innerHTML = `<div class="result-card">${bodyHtml}</div>`;
   document.getElementById("modalOverlay").classList.add("open");
 }
 function closeModal() {
@@ -444,14 +496,14 @@ function switchTab(name, btn) {
 
 // ── HELPERS ───────────────────────────────────────────────────
 function setStatus(state, text) {
-  const dot  = document.getElementById("statusDot");
+  const dot = document.getElementById("statusDot");
   const span = document.getElementById("statusText");
   dot.className = `status-dot ${state}`;
   span.textContent = text;
 }
 
 function showLoader() {
-  ["certTableWrap","entityTableWrap","attachTableWrap"].forEach(id => {
+  ["certTableWrap", "entityTableWrap", "attachTableWrap"].forEach(id => {
     document.getElementById(id).innerHTML = `<div class="loading-wrap"><div class="spinner"></div> Loading events…</div>`;
   });
 }
