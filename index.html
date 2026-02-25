@@ -33,9 +33,9 @@
         <span class="info-chip" id="networkId">Chain —</span>
       </div>
       <button class="btn btn-primary" id="connectBtn" onclick="connectAndLoad()">
-        ⚡ Connect
+        Connect
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="openConfigModal()" title="Reconfigure">⚙</button>
+      <button class="btn btn-ghost btn-sm" onclick="openConfigModal()" title="Reconfigure">Settings</button>
     </div>
   </header>
 
@@ -47,15 +47,15 @@
         <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" placeholder="http://127.0.0.1:7545" />
       </div>
       <div class="setting-group">
-        <label>CertificateRegistry</label>
+        <label>Certificate Registry</label>
         <input type="text" id="certAddr" placeholder="0x..." />
       </div>
       <div class="setting-group">
-        <label>EntityRegistry</label>
+        <label>Entity Registry</label>
         <input type="text" id="entityAddr" placeholder="0x..." />
       </div>
       <div class="setting-group">
-        <label>AttachmentRegistry</label>
+        <label>Attachment Registry</label>
         <input type="text" id="attachAddr" placeholder="0x..." />
       </div>
       <button class="btn btn-ghost" onclick="toggleSettings()">✕ Close</button>
@@ -67,18 +67,18 @@
 
     <!-- Disconnected splash -->
     <div class="splash" id="splash">
-      <div class="splash-icon">⬡</div>
+      <div class="splash-icon">&#x2B21;</div>
       <h1>CertiFlow Blockchain Explorer</h1>
       <p>Inspect every certificate, entity, and attachment stored on-chain.<br />
         Read-only &mdash; no wallet required.</p>
       <div class="splash-actions">
-        <button class="btn btn-primary btn-lg" onclick="connectAndLoad()">⚡ Connect</button>
-        <button class="btn btn-ghost btn-lg" onclick="openConfigModal()">⚙ Configure Connection</button>
+        <button class="btn btn-primary btn-lg" onclick="connectAndLoad()">Connect</button>
+        <button class="btn btn-ghost btn-lg" onclick="openConfigModal()">Configure Connection</button>
       </div>
       <div class="splash-chips">
-        <span class="splash-chip">🔍 Read-only</span>
-        <span class="splash-chip">📄 3 Smart Contracts</span>
-        <span class="splash-chip">🚫 No MetaMask needed</span>
+        <span class="splash-chip">Read-only</span>
+        <span class="splash-chip">3 Smart Contracts</span>
+        <span class="splash-chip">No MetaMask needed</span>
       </div>
     </div>
 
@@ -88,7 +88,7 @@
       <!-- STAT CARDS -->
       <section class="stats-row">
         <div class="stat-card" id="statCert">
-          <div class="stat-icon cert-icon">🎓</div>
+          <div class="stat-icon cert-icon"></div>
           <div class="stat-body">
             <div class="stat-value" id="certCount">—</div>
             <div class="stat-label">Certificates</div>
@@ -96,7 +96,7 @@
           <div class="stat-badge cert-badge">Registry</div>
         </div>
         <div class="stat-card" id="statEntity">
-          <div class="stat-icon entity-icon">🏢</div>
+          <div class="stat-icon entity-icon"></div>
           <div class="stat-body">
             <div class="stat-value" id="entityCount">—</div>
             <div class="stat-label">Entities</div>
@@ -104,7 +104,7 @@
           <div class="stat-badge entity-badge">Registry</div>
         </div>
         <div class="stat-card" id="statAttach">
-          <div class="stat-icon attach-icon">📎</div>
+          <div class="stat-icon attach-icon"></div>
           <div class="stat-body">
             <div class="stat-value" id="attachCount">—</div>
             <div class="stat-label">Attachments</div>
@@ -112,7 +112,7 @@
           <div class="stat-badge attach-badge">Registry</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">🔗</div>
+          <div class="stat-icon"></div>
           <div class="stat-body">
             <div class="stat-value" id="totalTx">—</div>
             <div class="stat-label">Total Events</div>
@@ -124,7 +124,7 @@
       <!-- LOOKUP TOOL -->
       <section class="lookup-section">
         <div class="lookup-card">
-          <h3>🔍 Hash Lookup</h3>
+          <h3>Hash Lookup</h3>
           <p>Paste any credential hash, entity hash, or file hash to query its on-chain record.</p>
           <div class="lookup-row">
             <select id="lookupRegistry">
@@ -143,20 +143,21 @@
       <section class="tabs-section">
         <div class="tabs-header">
           <button class="tab-btn active" onclick="switchTab('certificates', this)">
-            🎓 Certificates
+            Certificates
             <span class="tab-count" id="tabCertCount">0</span>
           </button>
           <button class="tab-btn" onclick="switchTab('entities', this)">
-            🏢 Entities
+            Entities
             <span class="tab-count" id="tabEntityCount">0</span>
           </button>
           <button class="tab-btn" onclick="switchTab('attachments', this)">
-            📎 Attachments
+            Attachments
             <span class="tab-count" id="tabAttachCount">0</span>
           </button>
           <div class="tabs-spacer"></div>
-          <button class="btn btn-ghost btn-sm" onclick="connectAndLoad()">↺ Refresh</button>
-          <button class="btn btn-ghost btn-sm" onclick="toggleSettings()">⚙ Settings</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportToCsv()">Export CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="connectAndLoad()">Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleSettings()">Settings</button>
         </div>
 
         <!-- Certificates tab -->
@@ -186,7 +187,7 @@
     <!-- ── FAQ SECTION ─────────────────────────────────────── -->
     <section class="faq-section">
       <div class="faq-header">
-        <span class="faq-icon">💬</span>
+        <span class="faq-icon"></span>
         <div>
           <h2>How to Connect &amp; Use This Dashboard</h2>
           <p class="faq-subtitle">Everything you need to know to explore CertiFlow's on-chain data.</p>
@@ -229,11 +230,11 @@
           <div class="faq-answer">
             <p>Click <strong>"Connect"</strong> (or the page auto-connects if config is saved). The dashboard
               immediately fetches all on-chain events from all three registries:<br /><br />
-              &nbsp;&nbsp;🎓 <strong>Certificates tab</strong> &mdash; all issued, updated, and revoked
+              &nbsp;&nbsp;<strong>Certificates tab</strong> &mdash; all issued, updated, and revoked
               certificates<br />
-              &nbsp;&nbsp;🏢 <strong>Entities tab</strong> &mdash; all registered organizations and businesses<br />
-              &nbsp;&nbsp;📎 <strong>Attachments tab</strong> &mdash; all verified document file hashes<br /><br />
-              Click <em>↺ Refresh</em> at any time to reload the latest events from the chain.
+              &nbsp;&nbsp;<strong>Entities tab</strong> &mdash; all registered organizations and businesses<br />
+              &nbsp;&nbsp;<strong>Attachments tab</strong> &mdash; all verified document file hashes<br /><br />
+              Click <em>Refresh</em> at any time to reload the latest events from the chain.
             </p>
           </div>
         </div>
@@ -258,10 +259,11 @@
             <span class="faq-arrow">›</span>
           </button>
           <div class="faq-answer">
-            <p>Yes. Click <strong>⚙ Configure Connection</strong> (or the gear icon in the navbar) to change the RPC URL
+            <p>Yes. Click <strong>Configure Connection</strong> (in the navbar) to change the RPC URL
               and contract addresses at any time. For example, to connect to a local Ganache node, set the RPC to
               <code>http://127.0.0.1:7545</code> and paste your locally deployed contract addresses. Your settings are
-              saved in the browser and persist across sessions.</p>
+              saved in the browser and persist across sessions.
+            </p>
           </div>
         </div>
 
@@ -299,30 +301,52 @@
   <div class="config-overlay" id="configOverlay">
     <div class="config-modal">
       <div class="config-header">
-        <div class="config-icon">⬡</div>
+        <div class="config-icon">&#x2B21;</div>
         <h2>Configure Connection</h2>
         <p>Enter your RPC endpoint and the three contract addresses to get started.</p>
       </div>
+      <div class="config-tabs-header">
+        <button type="button" class="tab-btn active" id="tabBtnManual" onclick="switchConfigTab('manual')">Manual
+          Entry</button>
+        <button type="button" class="tab-btn" id="tabBtnPaste" onclick="switchConfigTab('paste')">Quick Paste
+          (.env)</button>
+      </div>
+
       <div class="config-body">
-        <div class="config-field">
-          <label for="cfgRpc">RPC URL</label>
-          <input type="text" id="cfgRpc" placeholder="https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY"
-            spellcheck="false" />
+
+        <!-- Manual Entry Tab -->
+        <div class="config-tab-panel active" id="cfgPanelManual">
+          <div class="config-field">
+            <label for="cfgRpc">RPC URL</label>
+            <input type="text" id="cfgRpc" placeholder="https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY"
+              spellcheck="false" />
+          </div>
+          <div class="config-field">
+            <label for="cfgCert">Certificate Registry Address</label>
+            <input type="text" id="cfgCert" placeholder="0x..." spellcheck="false" />
+          </div>
+          <div class="config-field">
+            <label for="cfgEntity">Entity Registry Address</label>
+            <input type="text" id="cfgEntity" placeholder="0x..." spellcheck="false" />
+          </div>
+          <div class="config-field">
+            <label for="cfgAttach">Attachment Registry Address</label>
+            <input type="text" id="cfgAttach" placeholder="0x..." spellcheck="false" />
+          </div>
         </div>
-        <div class="config-field">
-          <label for="cfgCert">CertificateRegistry Address</label>
-          <input type="text" id="cfgCert" placeholder="0x..." spellcheck="false" />
-        </div>
-        <div class="config-field">
-          <label for="cfgEntity">EntityRegistry Address</label>
-          <input type="text" id="cfgEntity" placeholder="0x..." spellcheck="false" />
-        </div>
-        <div class="config-field">
-          <label for="cfgAttach">AttachmentRegistry Address</label>
-          <input type="text" id="cfgAttach" placeholder="0x..." spellcheck="false" />
+
+        <!-- Quick Paste Tab -->
+        <div class="config-tab-panel" id="cfgPanelPaste">
+          <div class="config-field" style="margin-bottom:0">
+            <label for="cfgPaste">Paste your keys</label>
+            <textarea id="cfgPaste" rows="8"
+              placeholder="BLOCKCHAIN_RPC_URL=https://...&#10;CERTIFICATE_REGISTRY_CONTRACT_ADDRESS=0x...&#10;ENTITY_REGISTRY_CONTRACT_ADDRESS=0x...&#10;ATTACHMENT_REGISTRY_CONTRACT_ADDRESS=0x..."
+              spellcheck="false" oninput="handleEnvPaste(event)"></textarea>
+            <p class="paste-help">Values will be extracted automatically when you paste.</p>
+          </div>
         </div>
         <div class="config-actions">
-          <button class="btn btn-primary btn-lg config-submit" onclick="submitConfig()">🚀 Save & Connect</button>
+          <button class="btn btn-primary btn-lg config-submit" onclick="submitConfig()">Save & Connect</button>
           <button class="btn btn-ghost btn-sm" onclick="closeConfigModal()">Cancel</button>
         </div>
       </div>
